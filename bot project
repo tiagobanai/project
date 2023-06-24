@@ -1,0 +1,117 @@
+#importei a biblioteca discord,para o bot funcionar
+import discord
+from discord.ext import commands
+from discord.flags import Intents
+#importe a biblioteca pandas para trabalhar com planilhas
+import pandas as pd
+#importei a biblioteca smtplib e email.message para enviar o e-mail de confirmação
+import smtplib
+import email.message
+import random
+import time
+
+#criei um prefixo para os comandos
+intents = discord.Intents.all()
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+coordenador = ['henrique.cunha@ifpb.edu.br']
+dev = ['elias.tiago@academico.ifpb.edu.br', 'gurgel.renan@academico.ifpb.edu.br']
+alunos = []
+email_alunos = []
+professor = []
+email_professor = []
+
+planilha_alunos = pd.read_csv(r'C:\Users\TECNOEASY\Desktop\Projeto\alunos.csv')
+planilha_professores = pd.read_csv(r'C:\Users\TECNOEASY\Desktop\Projeto\professores.csv')
+
+for i, x in planilha_alunos.iterrows():
+    alunos.extend([x[1]])
+    email_alunos.extend([x[7]])
+
+for j, y in planilha_professores.iterrows():
+    professor.extend([y[0]])
+    email_professor.extend([y[1]])
+
+#verificando se o e-mail fornecido está nas listas
+def verificar_email(x, email_aluno, nome_aluno, email_professor, nome_professor):
+    for i in email_aluno:
+        if i == x:
+            print('aluno verificado')
+            return nome_aluno[email_aluno.index(i)]
+
+    for j in email_professor:
+        if j == x:
+            print('professor verificado')
+            return nome_professor[email_professor.index(j)]
+
+
+@bot.event
+async def on_ready():
+    print(f'Tudo certo com o {bot.user}')
+
+
+@bot.event
+async def on_message(message):
+    if message.author == bot.user:
+        return
+    await bot.process_commands(message)
+
+
+@bot.command(name='ola')
+async def ola(ctx):
+    name = ctx.author.name
+    response = 'Olá, {} digite teu e-mail institucional da seguinte forma !e-mail blabla.'.format(name)
+    await ctx.message.channel.send(response)
+
+#recebendo o e-mail do usuario
+@bot.command(name='e-mail')
+async def email_input(ctx, email_input):
+    global email_user
+    response = email_input
+    email_user = response
+    #alterando o apelido para o nome dele
+    apelido = verificar_email(response, email_alunos, alunos, email_professor, professor)
+    print(apelido)
+    member = ctx.message.author
+    await member.edit(nick=apelido)
+    global senha_6digitos
+    senha_6digitos = ''
+    #criando uma senha aleatória
+    for i in range(6):
+        algarismo = random.randint(0, 9)
+        senha_6digitos += str(algarismo)
+    print(senha_6digitos)
+    if apelido != None or email_user in dev or email_user in coordenador:
+        #essa função está enviando o e-mail de confirmação
+        def enviar_email():
+            msg = email.message.Message()
+            msg['Subject'] = 'Autenticação'
+            msg['From'] = 'jamesbot.ifpb@gmail.com'
+            msg['To'] = email_user
+            password = 'jcfsitynoaljpeom'
+            msg.add_header('Content-Type', 'text/html')
+            msg.set_payload(str(senha_6digitos))
+
+            s = smtplib.SMTP('smtp.gmail.com: 587')
+            s.starttls()
+            s.login(msg['From'], password)
+            s.sendmail(msg['From'], [msg['To']], msg.as_string().encode('utf-8'))
+            print('e-mail enviado')
+            global start
+            start = time.time()
+
+        enviar_email()
+        #receber senha
+        @bot.command(name = 'senha')
+        async def confirma(ctx, confirmar):
+            end = time.time()
+            tempo = end - start
+            if confirmar == senha_6digitos and tempo < 300:
+                print('deu certo')
+            else:
+                await member.ban()
+
+    else:
+        await member.ban()
+
+bot.run('MTExOTA0Nzc0MDMwMzg4MDIxMw.GB5CpA.xNJCbzDZbTqdRvwLLFzR8ELShQBks98uh3_X1I')
